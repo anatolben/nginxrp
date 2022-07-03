@@ -1,0 +1,16 @@
+---
+# handlers file for nginxrp
+- name: Start Nginx
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    enabled: yes
+    state: started
+
+- name: Reload Nginx
+  become: true
+  ansible.builtin.service:
+    name: nginx
+    enabled: yes
+    state: reloaded
+

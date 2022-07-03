@@ -1,0 +1,110 @@
+---
+# tasks file for nginxrp
+- name: Install epel-release.
+  become: true
+  ansible.builtin.yum:
+    name:
+      - epel-release
+  tags: nginx
+
+- name: Install a list of packages.
+  become: true
+  ansible.builtin.yum:
+    name:
+      - nginx
+      - socat
+  notify:
+    - Start Nginx
+  tags: nginx
+
+- name: Copy nginx.conf.
+  become: true
+  ansible.builtin.copy:
+    src: ../files/nginx.conf
+    dest: /etc/nginx/
+    remote_src: false
+  tags: nginx
+
+- name: Copy snark_ml.conf.
+  become: true
+  ansible.builtin.copy:
+    src: ../files/snark_ml.conf
+    dest: /etc/nginx/conf.d
+    remote_src: false
+  tags: nginx
+
+- name: Copy proxy.conf.
+  become: true
+  ansible.builtin.copy:
+    src: ../files/proxy.conf
+    dest: /etc/nginx/conf.d
+    remote_src: false
+  tags: nginx
+
+- name: Flush handlers.
+  ansible.builtin.meta: flush_handlers
+
+- name: Get acme distrib.
+  ansible.builtin.get_url:
+    url: "https://get.acme.sh"
+    dest: "/tmp/acme.sh"
+    mode: '+x'
+  tags: acme
+
+- name: Install acme.
+  become: true
+  shell: /tmp/acme.sh | tee -a /tmp/acme.log
+  tags: acme
+  
+- name: Acme set letsencrypt.
+  become: true
+  shell: /root/.acme.sh/acme.sh --set-default-ca --server letsencrypt | tee -a /tmp/acme.log
+  tags: acme
+
+#- name: Execute the command.
+#  become: true
+#  shell: /root/.acme.sh/acme.sh --issue --staging -d snark.ml -d www.snark.ml -d gitlab.snark.ml -d grafana.snark.ml -d prometheus.snark.ml -d alertmanager.snark.ml --accountemail {{ account_email }} --webroot /usr/share/nginx/html/ --keylength ec-256 --debug | tee -a /tmp/acme.log
+#  tags: acme
+
+- name: Copy fullchain.cer.
+  become: true
+  ansible.builtin.copy:
+    src: /root/.acme.sh/snark.ml_ecc/fullchain.cer
+    dest: /etc/nginx/csr/
+    remote_src: true
+  tags: acme
+
+- name: Copy snark.ml.key.
+  become: true
+  ansible.builtin.copy:
+    src: /root/.acme.sh/snark.ml_ecc/snark.ml.key
+    dest: /etc/nginx/csr/
+    remote_src: true
+  tags: acme
+
+- name: Create dhparam.pem.
+  become: true
+  shell: openssl dhparam -out /etc/nginx/csr/dhparam.pem 2048
+  tags: acme
+
+- name: Copy ssl.conf.
+  become: true
+  ansible.builtin.copy:
+    src: ../files/ssl.conf
+    dest: /etc/nginx/conf.d
+    remote_src: false
+  tags: acme
+  
+- name: Copy snark_ml_tls.conf.
+  become: true
+  ansible.builtin.copy:
+    src: ../files/snark_ml_tls.conf
+    dest: /etc/nginx/conf.d
+    remote_src: false
+  notify:
+    - Reload Nginx
+  tags: acme
+    
+- name: Flush handlers.
+  ansible.builtin.meta: flush_handlers
+
